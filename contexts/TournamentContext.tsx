@@ -136,7 +136,6 @@ export const [TournamentContext, useTournamentData] = createContextHook(() => {
 
   const addPlayer = useCallback((player: Omit<Player, 'id' | 'createdAt'>) => {
     createPlayerMutation.mutate(player);
-    return { id: 'temp-' + Date.now().toString(), ...player, createdAt: new Date().toISOString() };
   }, [createPlayerMutation]);
 
   const updatePlayer = useCallback((id: string, updates: Partial<Player>) => {
@@ -149,7 +148,6 @@ export const [TournamentContext, useTournamentData] = createContextHook(() => {
 
   const addTournament = useCallback((tournament: Omit<Tournament, 'id' | 'createdAt'>) => {
     createTournamentMutation.mutate(tournament);
-    return { id: 'temp-' + Date.now().toString(), ...tournament, createdAt: new Date().toISOString() };
   }, [createTournamentMutation]);
 
   const updateTournament = useCallback((id: string, updates: Partial<Tournament>) => {
@@ -162,7 +160,6 @@ export const [TournamentContext, useTournamentData] = createContextHook(() => {
 
   const addMatch = useCallback((match: Omit<Match, 'id' | 'createdAt'>) => {
     createMatchMutation.mutate(match);
-    return { id: 'temp-' + Date.now().toString(), ...match, createdAt: new Date().toISOString() };
   }, [createMatchMutation]);
 
   const updateMatch = useCallback((id: string, updates: Partial<Match>) => {
@@ -182,7 +179,6 @@ export const [TournamentContext, useTournamentData] = createContextHook(() => {
 
   const addSponsor = useCallback((sponsor: Omit<Sponsor, 'id' | 'createdAt'>) => {
     createSponsorMutation.mutate(sponsor);
-    return { id: 'temp-' + Date.now().toString(), ...sponsor, createdAt: new Date().toISOString() };
   }, [createSponsorMutation]);
 
   const updateSponsor = useCallback((id: string, updates: Partial<Sponsor>) => {

@@ -167,7 +167,7 @@ export default function TournamentDetailScreen() {
       setSelectedTeams(newSelected);
       
       if (newSelected.length === 2) {
-        const match = addMatch({
+        addMatch({
           tournamentId: tournament.id,
           team1Id: newSelected[0],
           team2Id: newSelected[1],
@@ -180,7 +180,7 @@ export default function TournamentDetailScreen() {
         });
         setShowTeamSelector(false);
         setSelectedTeams([]);
-        router.push(`/match/${match.id}` as any);
+        Alert.alert('Match Created', 'Match has been created successfully');
       }
     }
   };

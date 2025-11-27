@@ -537,7 +537,7 @@ export default function AdminScreen() {
                         Alert.alert('Error', 'Points must be 0 or greater');
                         return;
                       }
-                      const newPlayer = addPlayer({
+                      addPlayer({
                         name: newPlayerName.trim(),
                         playerClass: newPlayerClass,
                         hasPaidMembership: false,
@@ -545,7 +545,7 @@ export default function AdminScreen() {
                       });
                       setNewPlayerName('');
                       setNewPlayerPoints('');
-                      Alert.alert('Success', `Added ${newPlayer.name} (Class ${newPlayerClass}) with ${points} points`);
+                      Alert.alert('Success', `Added ${newPlayerName.trim()} (Class ${newPlayerClass}) with ${points} points`);
                     }}
                   >
                     <Plus size={16} color="#FFFFFF" />
