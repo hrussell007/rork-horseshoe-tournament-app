@@ -1,283 +1,159 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import createContextHook from '@nkzw/create-context-hook';
-import { useState, useEffect, useMemo } from 'react';
-import { Player, Tournament, Match, TeamStats, PlayerSeasonStats, Sponsor, PastSeason } from '@/types/tournament';
-import { seedInitialData } from '@/utils/seedData';
-
-const STORAGE_KEYS = {
-  PLAYERS: 'horseshoe_players',
-  TOURNAMENTS: 'horseshoe_tournaments',
-  MATCHES: 'horseshoe_matches',
-  SPONSORS: 'horseshoe_sponsors',
-  PAST_SEASONS: 'horseshoe_past_seasons',
-};
+import { useEffect, useMemo, useCallback } from 'react';
+import { Player, Tournament, Match, TeamStats, PlayerSeasonStats, Sponsor } from '@/types/tournament';
+import { trpc } from '@/lib/trpc';
+import { useQueryClient } from '@tanstack/react-query';
 
 export const [TournamentContext, useTournamentData] = createContextHook(() => {
-  const [players, setPlayers] = useState<Player[]>([]);
-  const [tournaments, setTournaments] = useState<Tournament[]>([]);
-  const [matches, setMatches] = useState<Match[]>([]);
-  const [sponsors, setSponsors] = useState<Sponsor[]>([]);
-  const [pastSeasons, setPastSeasons] = useState<PastSeason[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const queryClient = useQueryClient();
+  
+  const playersQuery = trpc.players.getAll.useQuery();
+  const tournamentsQuery = trpc.tournaments.getAll.useQuery();
+  const matchesQuery = trpc.matches.getAll.useQuery();
+  const sponsorsQuery = trpc.sponsors.getAll.useQuery();
+  const pastSeasonsQuery = trpc.pastSeasons.getAll.useQuery();
+  
+  const seedMutation = trpc.seed.init.useMutation({
+    onSuccess: () => {
+      console.log('✅ Seed complete, refetching data...');
+      queryClient.invalidateQueries();
+    },
+  });
+
+  const createPlayerMutation = trpc.players.create.useMutation({
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [['players', 'getAll']] }),
+  });
+  
+  const updatePlayerMutation = trpc.players.update.useMutation({
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [['players', 'getAll']] }),
+  });
+  
+  const deletePlayerMutation = trpc.players.delete.useMutation({
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [['players', 'getAll']] }),
+  });
+
+  const createTournamentMutation = trpc.tournaments.create.useMutation({
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [['tournaments', 'getAll']] }),
+  });
+  
+  const updateTournamentMutation = trpc.tournaments.update.useMutation({
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [['tournaments', 'getAll']] }),
+  });
+  
+  const deleteTournamentMutation = trpc.tournaments.delete.useMutation({
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [['tournaments', 'getAll']] });
+      queryClient.invalidateQueries({ queryKey: [['matches', 'getAll']] });
+    },
+  });
+
+  const createMatchMutation = trpc.matches.create.useMutation({
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [['matches', 'getAll']] }),
+  });
+  
+  const createBatchMatchesMutation = trpc.matches.createBatch.useMutation({
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [['matches', 'getAll']] }),
+  });
+  
+  const updateMatchMutation = trpc.matches.update.useMutation({
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [['matches', 'getAll']] }),
+  });
+  
+  const deleteMatchMutation = trpc.matches.delete.useMutation({
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [['matches', 'getAll']] }),
+  });
+
+  const createSponsorMutation = trpc.sponsors.create.useMutation({
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [['sponsors', 'getAll']] }),
+  });
+  
+  const updateSponsorMutation = trpc.sponsors.update.useMutation({
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [['sponsors', 'getAll']] }),
+  });
+  
+  const deleteSponsorMutation = trpc.sponsors.delete.useMutation({
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [['sponsors', 'getAll']] }),
+  });
+
+  const createPastSeasonMutation = trpc.pastSeasons.create.useMutation({
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [['pastSeasons', 'getAll']] }),
+  });
+
+  const players = useMemo(() => playersQuery.data || [], [playersQuery.data]);
+  const tournaments = useMemo(() => tournamentsQuery.data || [], [tournamentsQuery.data]);
+  const matches = useMemo(() => matchesQuery.data || [], [matchesQuery.data]);
+  const sponsors = useMemo(() => sponsorsQuery.data || [], [sponsorsQuery.data]);
+  const pastSeasons = useMemo(() => pastSeasonsQuery.data || [], [pastSeasonsQuery.data]);
+  
+  const isLoading = playersQuery.isLoading || tournamentsQuery.isLoading || matchesQuery.isLoading;
 
   useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
-    try {
-      console.log('🔄 Loading data from AsyncStorage...');
-      const [playersData, tournamentsData, matchesData, sponsorsData, pastSeasonsData] = await Promise.all([
-        AsyncStorage.getItem(STORAGE_KEYS.PLAYERS),
-        AsyncStorage.getItem(STORAGE_KEYS.TOURNAMENTS),
-        AsyncStorage.getItem(STORAGE_KEYS.MATCHES),
-        AsyncStorage.getItem(STORAGE_KEYS.SPONSORS),
-        AsyncStorage.getItem(STORAGE_KEYS.PAST_SEASONS),
-      ]);
-
-      const parseJSON = (data: string | null, defaultValue: any[] = []) => {
-        if (!data || data === 'null' || data === 'undefined') return defaultValue;
-        try {
-          return JSON.parse(data);
-        } catch (e) {
-          console.error('JSON parse error for data:', data?.substring(0, 50), e);
-          return defaultValue;
-        }
-      };
-
-      console.log('📦 Storage status:', {
-        players: playersData && playersData !== 'null' ? `${parseJSON(playersData).length} found` : 'none',
-        tournaments: tournamentsData && tournamentsData !== 'null' ? `${parseJSON(tournamentsData).length} found` : 'none',
-        matches: matchesData && matchesData !== 'null' ? `${parseJSON(matchesData).length} found` : 'none',
-        sponsors: sponsorsData && sponsorsData !== 'null' ? `${parseJSON(sponsorsData).length} found` : 'none',
-        pastSeasons: pastSeasonsData && pastSeasonsData !== 'null' ? `${parseJSON(pastSeasonsData).length} found` : 'none',
-      });
-
-      if (!playersData || playersData === 'null' || !tournamentsData || tournamentsData === 'null') {
-        console.log('⚠️  No data found, seeding initial data...');
-        await seedInitialData();
-        const [newPlayersData, newTournamentsData, newMatchesData, newSponsorsData, newPastSeasonsData] = await Promise.all([
-          AsyncStorage.getItem(STORAGE_KEYS.PLAYERS),
-          AsyncStorage.getItem(STORAGE_KEYS.TOURNAMENTS),
-          AsyncStorage.getItem(STORAGE_KEYS.MATCHES),
-          AsyncStorage.getItem(STORAGE_KEYS.SPONSORS),
-          AsyncStorage.getItem(STORAGE_KEYS.PAST_SEASONS),
-        ]);
-        if (newPlayersData && newPlayersData !== 'null') {
-          const parsedPlayers = parseJSON(newPlayersData, []);
-          const playersWithMembership = parsedPlayers.map((p: Player) => ({
-            ...p,
-            hasPaidMembership: p.hasPaidMembership ?? false,
-            playerClass: p.playerClass ?? 'B',
-          }));
-          setPlayers(playersWithMembership);
-          console.log(`✅ Loaded ${playersWithMembership.length} players after seeding`);
-        }
-        if (newTournamentsData && newTournamentsData !== 'null') {
-          const tournaments = parseJSON(newTournamentsData, []);
-          setTournaments(tournaments);
-          console.log(`✅ Loaded ${tournaments.length} tournaments after seeding`);
-        }
-        if (newMatchesData && newMatchesData !== 'null') {
-          const matches = parseJSON(newMatchesData, []);
-          setMatches(matches);
-          console.log(`✅ Loaded ${matches.length} matches after seeding`);
-        }
-        if (newSponsorsData && newSponsorsData !== 'null') {
-          const sponsors = parseJSON(newSponsorsData, []);
-          setSponsors(sponsors);
-          console.log(`✅ Loaded ${sponsors.length} sponsors after seeding`);
-        }
-        if (newPastSeasonsData && newPastSeasonsData !== 'null') {
-          const pastSeasons = parseJSON(newPastSeasonsData, []);
-          setPastSeasons(pastSeasons);
-          console.log(`✅ Loaded ${pastSeasons.length} past seasons after seeding`);
-        }
-      } else {
-        if (playersData && playersData !== 'null') {
-          const parsedPlayers = parseJSON(playersData, []);
-          const playersWithMembership = parsedPlayers.map((p: Player) => ({
-            ...p,
-            hasPaidMembership: p.hasPaidMembership ?? false,
-            playerClass: p.playerClass ?? 'B',
-          }));
-          setPlayers(playersWithMembership);
-          console.log(`✅ Loaded ${playersWithMembership.length} players from storage`);
-        }
-        if (tournamentsData && tournamentsData !== 'null') {
-          const tournaments = parseJSON(tournamentsData, []);
-          setTournaments(tournaments);
-          console.log(`✅ Loaded ${tournaments.length} tournaments from storage`);
-        }
-        if (matchesData && matchesData !== 'null') {
-          const matches = parseJSON(matchesData, []);
-          setMatches(matches);
-          console.log(`✅ Loaded ${matches.length} matches from storage`);
-        }
-        if (sponsorsData && sponsorsData !== 'null') {
-          const sponsors = parseJSON(sponsorsData, []);
-          setSponsors(sponsors);
-          console.log(`✅ Loaded ${sponsors.length} sponsors from storage`);
-        }
-        if (pastSeasonsData && pastSeasonsData !== 'null') {
-          const pastSeasons = parseJSON(pastSeasonsData, []);
-          setPastSeasons(pastSeasons);
-          console.log(`✅ Loaded ${pastSeasons.length} past seasons from storage`);
-        }
-      }
-      console.log('✅ Data loading completed successfully');
-    } catch (error) {
-      console.error('❌ Error loading data:', error);
-      console.error('Stack trace:', error instanceof Error ? error.stack : 'N/A');
-    } finally {
-      setIsLoading(false);
+    if (!isLoading && players.length === 0 && tournaments.length === 0) {
+      console.log('🌱 No data found, seeding...');
+      seedMutation.mutate();
     }
-  };
+  }, [isLoading, players.length, tournaments.length, seedMutation]);
 
-  const saveData = async (
-    newPlayers?: Player[],
-    newTournaments?: Tournament[],
-    newMatches?: Match[],
-    newSponsors?: Sponsor[],
-    newPastSeasons?: PastSeason[]
-  ) => {
-    try {
-      const promises = [];
-      if (newPlayers !== undefined) {
-        promises.push(AsyncStorage.setItem(STORAGE_KEYS.PLAYERS, JSON.stringify(newPlayers)));
-      }
-      if (newTournaments !== undefined) {
-        promises.push(AsyncStorage.setItem(STORAGE_KEYS.TOURNAMENTS, JSON.stringify(newTournaments)));
-      }
-      if (newMatches !== undefined) {
-        promises.push(AsyncStorage.setItem(STORAGE_KEYS.MATCHES, JSON.stringify(newMatches)));
-      }
-      if (newSponsors !== undefined) {
-        promises.push(AsyncStorage.setItem(STORAGE_KEYS.SPONSORS, JSON.stringify(newSponsors)));
-      }
-      if (newPastSeasons !== undefined) {
-        promises.push(AsyncStorage.setItem(STORAGE_KEYS.PAST_SEASONS, JSON.stringify(newPastSeasons)));
-      }
-      await Promise.all(promises);
-      console.log('Data saved successfully:', { 
-        players: newPlayers !== undefined ? newPlayers.length : 'not updated',
-        tournaments: newTournaments !== undefined ? newTournaments.length : 'not updated',
-        matches: newMatches !== undefined ? newMatches.length : 'not updated',
-        sponsors: newSponsors !== undefined ? newSponsors.length : 'not updated',
-        pastSeasons: newPastSeasons !== undefined ? newPastSeasons.length : 'not updated'
-      });
-    } catch (error) {
-      console.error('Error saving data:', error);
-    }
-  };
+  const addPlayer = useCallback((player: Omit<Player, 'id' | 'createdAt'>) => {
+    createPlayerMutation.mutate(player);
+    return { id: 'temp-' + Date.now().toString(), ...player, createdAt: new Date().toISOString() };
+  }, [createPlayerMutation]);
 
-  const addPlayer = (player: Omit<Player, 'id' | 'createdAt'>) => {
-    const newPlayer: Player = {
-      ...player,
-      id: Date.now().toString(),
-      createdAt: new Date().toISOString(),
-    };
-    const updated = [...players, newPlayer];
-    setPlayers(updated);
-    saveData(updated, undefined, undefined);
-    return newPlayer;
-  };
+  const updatePlayer = useCallback((id: string, updates: Partial<Player>) => {
+    updatePlayerMutation.mutate({ id, ...updates });
+  }, [updatePlayerMutation]);
 
-  const updatePlayer = (id: string, updates: Partial<Player>) => {
-    const updated = players.map((p) => (p.id === id ? { ...p, ...updates } : p));
-    setPlayers(updated);
-    saveData(updated, undefined, undefined);
-  };
+  const deletePlayer = useCallback((id: string) => {
+    deletePlayerMutation.mutate({ id });
+  }, [deletePlayerMutation]);
 
-  const deletePlayer = (id: string) => {
-    const updated = players.filter((p) => p.id !== id);
-    setPlayers(updated);
-    saveData(updated, undefined, undefined);
-  };
+  const addTournament = useCallback((tournament: Omit<Tournament, 'id' | 'createdAt'>) => {
+    createTournamentMutation.mutate(tournament);
+    return { id: 'temp-' + Date.now().toString(), ...tournament, createdAt: new Date().toISOString() };
+  }, [createTournamentMutation]);
 
-  const addTournament = (tournament: Omit<Tournament, 'id' | 'createdAt'>) => {
-    const newTournament: Tournament = {
-      ...tournament,
-      id: Date.now().toString(),
-      createdAt: new Date().toISOString(),
-    };
-    const updated = [...tournaments, newTournament];
-    setTournaments(updated);
-    saveData(undefined, updated, undefined);
+  const updateTournament = useCallback((id: string, updates: Partial<Tournament>) => {
+    updateTournamentMutation.mutate({ id, ...updates });
+  }, [updateTournamentMutation]);
 
-    return newTournament;
-  };
+  const deleteTournament = useCallback((id: string) => {
+    deleteTournamentMutation.mutate({ id });
+  }, [deleteTournamentMutation]);
 
-  const updateTournament = (id: string, updates: Partial<Tournament>) => {
-    const updated = tournaments.map((t) => (t.id === id ? { ...t, ...updates } : t));
-    setTournaments(updated);
-    saveData(undefined, updated, undefined);
-  };
+  const addMatch = useCallback((match: Omit<Match, 'id' | 'createdAt'>) => {
+    createMatchMutation.mutate(match);
+    return { id: 'temp-' + Date.now().toString(), ...match, createdAt: new Date().toISOString() };
+  }, [createMatchMutation]);
 
-  const deleteTournament = (id: string) => {
-    const updated = tournaments.filter((t) => t.id !== id);
-    const updatedMatches = matches.filter((m) => m.tournamentId !== id);
-    setTournaments(updated);
-    setMatches(updatedMatches);
-    saveData(undefined, updated, updatedMatches);
-  };
-
-  const addMatch = (match: Omit<Match, 'id' | 'createdAt'>) => {
-    const newMatch: Match = {
-      ...match,
-      id: Date.now().toString(),
-      createdAt: new Date().toISOString(),
-    };
-    const updated = [...matches, newMatch];
-    setMatches(updated);
-    saveData(undefined, undefined, updated);
-    return newMatch;
-  };
-
-  const updateMatch = (id: string, updates: Partial<Match>) => {
-    const updated = matches.map((m) => (m.id === id ? { ...m, ...updates } : m));
-    setMatches(updated);
-    saveData(undefined, undefined, updated);
+  const updateMatch = useCallback((id: string, updates: Partial<Match>) => {
+    updateMatchMutation.mutate({ id, ...updates });
     
     const match = matches.find(m => m.id === id);
     if (match && updates.status === 'completed' && match.pitNumber) {
-      reassignPitsForTournament(match.tournamentId, updated);
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: [['matches', 'getAll']] });
+      }, 100);
     }
-  };
+  }, [updateMatchMutation, matches, queryClient]);
 
-  const deleteMatch = (id: string) => {
-    const updated = matches.filter((m) => m.id !== id);
-    setMatches(updated);
-    saveData(undefined, undefined, updated);
-  };
+  const deleteMatch = useCallback((id: string) => {
+    deleteMatchMutation.mutate({ id });
+  }, [deleteMatchMutation]);
 
-  const addSponsor = (sponsor: Omit<Sponsor, 'id' | 'createdAt'>) => {
-    const newSponsor: Sponsor = {
-      ...sponsor,
-      id: Date.now().toString(),
-      createdAt: new Date().toISOString(),
-    };
-    const updated = [...sponsors, newSponsor];
-    setSponsors(updated);
-    saveData(undefined, undefined, undefined, updated);
-    return newSponsor;
-  };
+  const addSponsor = useCallback((sponsor: Omit<Sponsor, 'id' | 'createdAt'>) => {
+    createSponsorMutation.mutate(sponsor);
+    return { id: 'temp-' + Date.now().toString(), ...sponsor, createdAt: new Date().toISOString() };
+  }, [createSponsorMutation]);
 
-  const updateSponsor = (id: string, updates: Partial<Sponsor>) => {
-    const updated = sponsors.map((s) => (s.id === id ? { ...s, ...updates } : s));
-    setSponsors(updated);
-    saveData(undefined, undefined, undefined, updated);
-  };
+  const updateSponsor = useCallback((id: string, updates: Partial<Sponsor>) => {
+    updateSponsorMutation.mutate({ id, ...updates });
+  }, [updateSponsorMutation]);
 
-  const deleteSponsor = (id: string) => {
-    const updated = sponsors.filter((s) => s.id !== id);
-    setSponsors(updated);
-    saveData(undefined, undefined, undefined, updated);
-  };
+  const deleteSponsor = useCallback((id: string) => {
+    deleteSponsorMutation.mutate({ id });
+  }, [deleteSponsorMutation]);
 
-
-
-  const generateRoundRobinMatches = (tournamentId: string, forceRegenerate: boolean = false) => {
+  const generateRoundRobinMatches = useCallback((tournamentId: string, forceRegenerate: boolean = false) => {
     const tournament = tournaments.find((t) => t.id === tournamentId);
     if (!tournament || !tournament.teams || tournament.teams.length < 2) {
       console.log('Cannot generate matches: insufficient teams');
@@ -300,8 +176,7 @@ export const [TournamentContext, useTournamentData] = createContextHook(() => {
 
     if (forceRegenerate && existingMatches.length > 0) {
       console.log(`Deleting ${existingMatches.length} existing matches before regenerating...`);
-      const filteredMatches = matches.filter((m) => m.tournamentId !== tournamentId);
-      setMatches(filteredMatches);
+      existingMatches.forEach(m => deleteMatchMutation.mutate({ id: m.id }));
     }
 
     const teams = [...tournament.teams];
@@ -328,15 +203,8 @@ export const [TournamentContext, useTournamentData] = createContextHook(() => {
     const rounds = isDoubleRoundRobin ? 2 : 1;
     
     console.log(`Generating ${roundType} round-robin schedule for ${n} teams (games to ${targetPoints} points)...`);
-    if (isDoubleRoundRobin) {
-      console.log(`Expected: ${2 * (n - 1)} rounds, ${n * (n - 1)} total matches, ${2 * (n - 1)} games per team`);
-    } else {
-      console.log(`Expected: ${n - 1} rounds, ${n * (n - 1) / 2} total matches, ${n - 1} games per team`);
-    }
 
-    const roundRobinMatches: Match[] = [];
-    const baseTimestamp = Date.now();
-    let matchCounter = 0;
+    const roundRobinMatches: Omit<Match, 'id' | 'createdAt'>[] = [];
     let globalRoundNumber = 0;
     let pitAssignmentCounter = 0;
 
@@ -349,28 +217,22 @@ export const [TournamentContext, useTournamentData] = createContextHook(() => {
 
       const numRounds = cycleTeams.length - 1;
       const half = cycleTeams.length / 2;
-
       const teamsRotate = [...cycleTeams];
 
       for (let round = 0; round < numRounds; round++) {
         globalRoundNumber++;
-        console.log(`\n=== Round ${globalRoundNumber} ${isDoubleRoundRobin ? `(Cycle ${cycle + 1})` : ''} ===`);
-        let matchInRound = 0;
 
         for (let i = 0; i < half; i++) {
           const team1 = teamsRotate[i];
           const team2 = teamsRotate[cycleTeams.length - 1 - i];
 
           if (team1.id !== 'BYE' && team2.id !== 'BYE') {
-            matchInRound++;
-            
             const pitNumber = availablePits > 0 ? ((pitAssignmentCounter % availablePits) + 1) : undefined;
             if (pitNumber) {
               pitAssignmentCounter++;
             }
             
-            const newMatch: Match = {
-              id: `${baseTimestamp}-${matchCounter++}`,
+            const newMatch: Omit<Match, 'id' | 'createdAt'> = {
               tournamentId: tournament.id,
               team1Id: team1.id,
               team2Id: team2.id,
@@ -382,11 +244,8 @@ export const [TournamentContext, useTournamentData] = createContextHook(() => {
               round: globalRoundNumber,
               targetPoints: targetPoints,
               pitNumber: pitNumber,
-              createdAt: new Date().toISOString(),
             };
             roundRobinMatches.push(newMatch);
-            const pitInfo = pitNumber ? ` @ Pit ${pitNumber}` : '';
-            console.log(`  Match ${matchInRound}: ${team1.id.substring(0, 8)} vs ${team2.id.substring(0, 8)} (to ${targetPoints} pts)${pitInfo}`);
           }
         }
 
@@ -395,31 +254,13 @@ export const [TournamentContext, useTournamentData] = createContextHook(() => {
       }
     }
 
-    const updatedMatches = forceRegenerate 
-      ? [...matches.filter((m) => m.tournamentId !== tournamentId), ...roundRobinMatches]
-      : [...matches, ...roundRobinMatches];
-      
-    setMatches(updatedMatches);
-    saveData(undefined, undefined, updatedMatches);
-
-    console.log(`\n✓ SUCCESS: Generated ${roundRobinMatches.length} ${roundType} round-robin matches (to ${targetPoints} points)`);
-    console.log(`✓ Total rounds: ${globalRoundNumber}`);
-    console.log(`✓ Each team plays ${isDoubleRoundRobin ? 2 * (n - 1) : n - 1} games`);
-    console.log(`✓ Total matches: ${roundRobinMatches.length}`);
-    console.log(`✓ Expected matches: ${isDoubleRoundRobin ? n * (n - 1) : n * (n - 1) / 2}`);
-    
-    const matchCountByRound: Record<number, number> = {};
-    roundRobinMatches.forEach(m => {
-      matchCountByRound[m.round] = (matchCountByRound[m.round] || 0) + 1;
-    });
-    console.log('Matches per round:', matchCountByRound);
+    createBatchMatchesMutation.mutate({ matches: roundRobinMatches as any });
+    console.log(`✓ SUCCESS: Generated ${roundRobinMatches.length} ${roundType} round-robin matches`);
     
     return roundRobinMatches;
-  };
+  }, [tournaments, matches, deleteMatchMutation, createBatchMatchesMutation]);
 
-
-
-  const reassignPitsForTournament = (tournamentId: string, allMatches: Match[]) => {
+  const reassignPitsForTournament = useCallback((tournamentId: string, allMatches: Match[]) => {
     const tournament = tournaments.find(t => t.id === tournamentId);
     if (!tournament || !tournament.availablePits) return;
     
@@ -440,7 +281,7 @@ export const [TournamentContext, useTournamentData] = createContextHook(() => {
     
     if (availablePitNumbers.length === 0) return;
     
-    console.log(`🔄 Reassigning pits - Available: [${availablePitNumbers.join(', ')}], In use: [${Array.from(usedPits).join(', ')}]`);
+    console.log(`🔄 Reassigning pits - Available: [${availablePitNumbers.join(', ')}]`);
     
     const sortedPendingMatches = [...pendingMatches].sort((a, b) => {
       if (a.round !== b.round) return a.round - b.round;
@@ -448,26 +289,18 @@ export const [TournamentContext, useTournamentData] = createContextHook(() => {
     });
     
     let pitIndex = 0;
-    const updatedMatches = allMatches.map(match => {
-      if (match.tournamentId === tournamentId && match.status === 'pending') {
-        const matchIndex = sortedPendingMatches.findIndex(m => m.id === match.id);
-        if (matchIndex < availablePitNumbers.length) {
-          const assignedPit = availablePitNumbers[pitIndex % availablePitNumbers.length];
-          pitIndex++;
-          console.log(`  → Assigning match ${match.id.substring(0, 8)} (Round ${match.round}) to Pit ${assignedPit}`);
-          return { ...match, pitNumber: assignedPit };
-        } else {
-          return { ...match, pitNumber: undefined };
-        }
+    sortedPendingMatches.forEach((match, matchIndex) => {
+      if (matchIndex < availablePitNumbers.length) {
+        const assignedPit = availablePitNumbers[pitIndex % availablePitNumbers.length];
+        pitIndex++;
+        updateMatchMutation.mutate({ id: match.id, pitNumber: assignedPit });
+      } else {
+        updateMatchMutation.mutate({ id: match.id, pitNumber: undefined });
       }
-      return match;
     });
-    
-    setMatches(updatedMatches);
-    saveData(undefined, undefined, updatedMatches);
-  };
+  }, [tournaments, updateMatchMutation]);
 
-  const calculateTeamStatsForTournament = (tournament: Tournament): TeamStats[] => {
+  const calculateTeamStatsForTournament = useCallback((tournament: Tournament): TeamStats[] => {
     if (!tournament.teams) return [];
 
     const stats: Record<string, TeamStats> = {};
@@ -513,9 +346,9 @@ export const [TournamentContext, useTournamentData] = createContextHook(() => {
       if (b.wins !== a.wins) return b.wins - a.wins;
       return a.losses - b.losses;
     });
-  };
+  }, [matches]);
 
-  const calculateSeasonStandings = (filterByClass?: 'A' | 'B'): PlayerSeasonStats[] => {
+  const calculateSeasonStandings = useCallback((filterByClass?: 'A' | 'B'): PlayerSeasonStats[] => {
     const stats: Record<string, PlayerSeasonStats> = {};
 
     players.forEach((player) => {
@@ -653,33 +486,21 @@ export const [TournamentContext, useTournamentData] = createContextHook(() => {
         if (b.secondPlaceFinishes !== a.secondPlaceFinishes) return b.secondPlaceFinishes - a.secondPlaceFinishes;
         return b.thirdPlaceFinishes - a.thirdPlaceFinishes;
       });
-  };
+  }, [players, tournaments, matches, calculateTeamStatsForTournament]);
 
-  const forceReseedData = async () => {
+  const forceReseedData = useCallback(async () => {
     try {
       console.log('💥 Force reseeding data...');
-      await Promise.all([
-        AsyncStorage.removeItem(STORAGE_KEYS.PLAYERS),
-        AsyncStorage.removeItem(STORAGE_KEYS.TOURNAMENTS),
-        AsyncStorage.removeItem(STORAGE_KEYS.MATCHES),
-        AsyncStorage.removeItem(STORAGE_KEYS.SPONSORS),
-        AsyncStorage.removeItem(STORAGE_KEYS.PAST_SEASONS),
-      ]);
-      console.log('🗑️  Cleared all existing data');
-      
-      await seedInitialData();
-      console.log('✅ Seeding complete, reloading data...');
-      
-      await loadData();
+      await seedMutation.mutateAsync();
       console.log('✅ Data restoration complete!');
       return true;
     } catch (error) {
       console.error('❌ Error reseeding data:', error);
       return false;
     }
-  };
+  }, [seedMutation]);
 
-  const resetTournament = async (tournamentId: string) => {
+  const resetTournament = useCallback(async (tournamentId: string) => {
     try {
       console.log('🔄 Resetting tournament...');
       
@@ -689,19 +510,13 @@ export const [TournamentContext, useTournamentData] = createContextHook(() => {
         return false;
       }
       
-      const updatedMatches = matches.filter(m => m.tournamentId !== tournamentId);
-      setMatches(updatedMatches);
+      const matchesToDelete = matches.filter(m => m.tournamentId === tournamentId);
+      matchesToDelete.forEach(m => deleteMatchMutation.mutate({ id: m.id }));
       
-      const updatedTournament = {
-        ...tournamentToReset,
+      updateTournamentMutation.mutate({
+        id: tournamentId,
         bracketState: undefined,
-      };
-      const updatedTournaments = tournaments.map(t => 
-        t.id === tournamentId ? updatedTournament : t
-      );
-      setTournaments(updatedTournaments);
-      
-      await saveData(undefined, updatedTournaments, updatedMatches);
+      });
       
       console.log('✅ Tournament reset complete');
       return true;
@@ -709,80 +524,63 @@ export const [TournamentContext, useTournamentData] = createContextHook(() => {
       console.error('❌ Error resetting tournament:', error);
       return false;
     }
-  };
+  }, [tournaments, matches, deleteMatchMutation, updateTournamentMutation]);
 
-  const resetSeason = async (seasonName: string) => {
+  const resetSeason = useCallback(async (seasonName: string) => {
     try {
       console.log('🔄 Resetting season...');
       
       const classAStandings = calculateSeasonStandings('A');
       const classBStandings = calculateSeasonStandings('B');
       
-      const newPastSeason: PastSeason = {
-        id: Date.now().toString(),
+      await createPastSeasonMutation.mutateAsync({
         name: seasonName,
         endDate: new Date().toISOString(),
         classAStandings,
         classBStandings,
-        createdAt: new Date().toISOString(),
-      };
+      });
       
-      const updatedPastSeasons = [newPastSeason, ...pastSeasons];
-      setPastSeasons(updatedPastSeasons);
-      
-      const updatedPlayers = players.map(p => ({
-        ...p,
-        customSeasonPoints: undefined,
-      }));
-      setPlayers(updatedPlayers);
+      players.forEach(p => {
+        if (p.customSeasonPoints !== undefined) {
+          updatePlayerMutation.mutate({ id: p.id, customSeasonPoints: undefined });
+        }
+      });
       
       const completedTournaments = tournaments.filter(t => t.status === 'completed');
-      const otherTournaments = tournaments.filter(t => t.status !== 'completed');
-      setTournaments(otherTournaments);
-      
-      const completedTournamentIds = new Set(completedTournaments.map(t => t.id));
-      const updatedMatches = matches.filter(m => !completedTournamentIds.has(m.tournamentId));
-      setMatches(updatedMatches);
-      
-      await saveData(updatedPlayers, otherTournaments, updatedMatches, undefined, updatedPastSeasons);
+      completedTournaments.forEach(t => {
+        deleteTournamentMutation.mutate({ id: t.id });
+      });
       
       console.log('✅ Season reset complete');
-      console.log(`📊 Saved ${classAStandings.length} Class A and ${classBStandings.length} Class B standings`);
-      console.log(`🗑️  Removed ${completedTournaments.length} completed tournaments`);
       return true;
     } catch (error) {
       console.error('❌ Error resetting season:', error);
       return false;
     }
-  };
+  }, [players, tournaments, calculateSeasonStandings, createPastSeasonMutation, updatePlayerMutation, deleteTournamentMutation]);
 
-  const clearSeasonLeaderboard = async () => {
+  const clearSeasonLeaderboard = useCallback(async () => {
     try {
       console.log('🗑️  Clearing season leaderboard...');
       
-      const updatedPlayers = players.map(p => ({
-        ...p,
-        customSeasonPoints: undefined,
-      }));
-      setPlayers(updatedPlayers);
+      players.forEach(p => {
+        if (p.customSeasonPoints !== undefined) {
+          updatePlayerMutation.mutate({ id: p.id, customSeasonPoints: undefined });
+        }
+      });
       
-      const activeTournaments = tournaments.filter(t => t.status !== 'completed');
-      setTournaments(activeTournaments);
-      
-      const activeTournamentIds = new Set(activeTournaments.map(t => t.id));
-      const updatedMatches = matches.filter(m => activeTournamentIds.has(m.tournamentId));
-      setMatches(updatedMatches);
-      
-      await saveData(updatedPlayers, activeTournaments, updatedMatches);
+      const completedTournaments = tournaments.filter(t => t.status === 'completed');
+      completedTournaments.forEach(t => {
+        deleteTournamentMutation.mutate({ id: t.id });
+      });
       
       console.log('✅ Season leaderboard cleared');
-      console.log(`🗑️  Removed all completed tournaments and their matches`);
       return true;
     } catch (error) {
       console.error('❌ Error clearing season leaderboard:', error);
       return false;
     }
-  };
+  }, [players, tournaments, updatePlayerMutation, deleteTournamentMutation]);
 
   return {
     players,
