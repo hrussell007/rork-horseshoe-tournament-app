@@ -4,7 +4,16 @@
   "devCommand": "npx expo start --web",
   "installCommand": "bun install",
   "framework": null,
+  "functions": {
+    "api/**/*": {
+      "runtime": "edge"
+    }
+  },
   "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "/api"
+    },
     {
       "source": "/(.*)",
       "destination": "/index.html"

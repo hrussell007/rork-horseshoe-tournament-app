@@ -24,12 +24,14 @@ app.use("*", async (c, next) => {
   return next();
 });
 
-app.use("*", cors());
+app.use("*", cors({
+  origin: '*',
+  credentials: true,
+}));
 
 app.use(
-  "/trpc/*",
+  "/api/trpc/*",
   trpcServer({
-    endpoint: "/api/trpc",
     router: appRouter,
     createContext,
   })

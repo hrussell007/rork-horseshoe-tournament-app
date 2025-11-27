@@ -7,10 +7,16 @@ export const trpc = createTRPCReact<AppRouter>();
 
 const getBaseUrl = () => {
   const baseUrl = process.env.EXPO_PUBLIC_RORK_API_BASE_URL;
-  console.log('🔗 tRPC Base URL:', baseUrl);
   
   if (baseUrl) {
+    console.log('🔗 tRPC Base URL (from env):', baseUrl);
     return baseUrl;
+  }
+
+  if (typeof window !== 'undefined') {
+    const url = window.location.origin;
+    console.log('🔗 tRPC Base URL (web):', url);
+    return url;
   }
 
   console.error('❌ EXPO_PUBLIC_RORK_API_BASE_URL is not set!');
