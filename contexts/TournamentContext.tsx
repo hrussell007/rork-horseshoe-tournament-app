@@ -13,6 +13,24 @@ export const [TournamentContext, useTournamentData] = createContextHook(() => {
   const sponsorsQuery = trpc.sponsors.getAll.useQuery();
   const pastSeasonsQuery = trpc.pastSeasons.getAll.useQuery();
   
+  useEffect(() => {
+    if (playersQuery.error) {
+      console.error('❌ Error fetching players:', playersQuery.error);
+    }
+    if (tournamentsQuery.error) {
+      console.error('❌ Error fetching tournaments:', tournamentsQuery.error);
+    }
+    if (matchesQuery.error) {
+      console.error('❌ Error fetching matches:', matchesQuery.error);
+    }
+    if (sponsorsQuery.error) {
+      console.error('❌ Error fetching sponsors:', sponsorsQuery.error);
+    }
+    if (pastSeasonsQuery.error) {
+      console.error('❌ Error fetching past seasons:', pastSeasonsQuery.error);
+    }
+  }, [playersQuery.error, tournamentsQuery.error, matchesQuery.error, sponsorsQuery.error, pastSeasonsQuery.error]);
+  
   const seedMutation = trpc.seed.init.useMutation({
     onSuccess: () => {
       console.log('✅ Seed complete, refetching data...');
@@ -24,6 +42,10 @@ export const [TournamentContext, useTournamentData] = createContextHook(() => {
     onSuccess: () => {
       console.log('✅ Player created, refetching...');
       queryClient.invalidateQueries({ queryKey: [['players']] });
+    },
+    onError: (error) => {
+      console.error('❌ Error creating player:', error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
     },
   });
   
@@ -45,6 +67,10 @@ export const [TournamentContext, useTournamentData] = createContextHook(() => {
     onSuccess: () => {
       console.log('✅ Tournament created, refetching...');
       queryClient.invalidateQueries({ queryKey: [['tournaments']] });
+    },
+    onError: (error) => {
+      console.error('❌ Error creating tournament:', error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
     },
   });
   
@@ -135,6 +161,7 @@ export const [TournamentContext, useTournamentData] = createContextHook(() => {
   }, [isLoading, players.length, tournaments.length, seedMutation]);
 
   const addPlayer = useCallback((player: Omit<Player, 'id' | 'createdAt'>) => {
+    console.log('🔄 Adding player:', player);
     createPlayerMutation.mutate(player);
   }, [createPlayerMutation]);
 
@@ -147,6 +174,7 @@ export const [TournamentContext, useTournamentData] = createContextHook(() => {
   }, [deletePlayerMutation]);
 
   const addTournament = useCallback((tournament: Omit<Tournament, 'id' | 'createdAt'>) => {
+    console.log('🔄 Adding tournament:', tournament);
     createTournamentMutation.mutate(tournament);
   }, [createTournamentMutation]);
 
