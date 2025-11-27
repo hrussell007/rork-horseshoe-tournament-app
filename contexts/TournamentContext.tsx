@@ -21,62 +21,102 @@ export const [TournamentContext, useTournamentData] = createContextHook(() => {
   });
 
   const createPlayerMutation = trpc.players.create.useMutation({
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [['players', 'getAll']] }),
+    onSuccess: () => {
+      console.log('✅ Player created, refetching...');
+      queryClient.invalidateQueries({ queryKey: [['players']] });
+    },
   });
   
   const updatePlayerMutation = trpc.players.update.useMutation({
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [['players', 'getAll']] }),
+    onSuccess: () => {
+      console.log('✅ Player updated, refetching...');
+      queryClient.invalidateQueries({ queryKey: [['players']] });
+    },
   });
   
   const deletePlayerMutation = trpc.players.delete.useMutation({
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [['players', 'getAll']] }),
+    onSuccess: () => {
+      console.log('✅ Player deleted, refetching...');
+      queryClient.invalidateQueries({ queryKey: [['players']] });
+    },
   });
 
   const createTournamentMutation = trpc.tournaments.create.useMutation({
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [['tournaments', 'getAll']] }),
+    onSuccess: () => {
+      console.log('✅ Tournament created, refetching...');
+      queryClient.invalidateQueries({ queryKey: [['tournaments']] });
+    },
   });
   
   const updateTournamentMutation = trpc.tournaments.update.useMutation({
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [['tournaments', 'getAll']] }),
+    onSuccess: () => {
+      console.log('✅ Tournament updated, refetching...');
+      queryClient.invalidateQueries({ queryKey: [['tournaments']] });
+    },
   });
   
   const deleteTournamentMutation = trpc.tournaments.delete.useMutation({
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [['tournaments', 'getAll']] });
-      queryClient.invalidateQueries({ queryKey: [['matches', 'getAll']] });
+      console.log('✅ Tournament deleted, refetching...');
+      queryClient.invalidateQueries({ queryKey: [['tournaments']] });
+      queryClient.invalidateQueries({ queryKey: [['matches']] });
     },
   });
 
   const createMatchMutation = trpc.matches.create.useMutation({
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [['matches', 'getAll']] }),
+    onSuccess: () => {
+      console.log('✅ Match created, refetching...');
+      queryClient.invalidateQueries({ queryKey: [['matches']] });
+    },
   });
   
   const createBatchMatchesMutation = trpc.matches.createBatch.useMutation({
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [['matches', 'getAll']] }),
+    onSuccess: () => {
+      console.log('✅ Batch matches created, refetching...');
+      queryClient.invalidateQueries({ queryKey: [['matches']] });
+    },
   });
   
   const updateMatchMutation = trpc.matches.update.useMutation({
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [['matches', 'getAll']] }),
+    onSuccess: () => {
+      console.log('✅ Match updated, refetching...');
+      queryClient.invalidateQueries({ queryKey: [['matches']] });
+    },
   });
   
   const deleteMatchMutation = trpc.matches.delete.useMutation({
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [['matches', 'getAll']] }),
+    onSuccess: () => {
+      console.log('✅ Match deleted, refetching...');
+      queryClient.invalidateQueries({ queryKey: [['matches']] });
+    },
   });
 
   const createSponsorMutation = trpc.sponsors.create.useMutation({
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [['sponsors', 'getAll']] }),
+    onSuccess: () => {
+      console.log('✅ Sponsor created, refetching...');
+      queryClient.invalidateQueries({ queryKey: [['sponsors']] });
+    },
   });
   
   const updateSponsorMutation = trpc.sponsors.update.useMutation({
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [['sponsors', 'getAll']] }),
+    onSuccess: () => {
+      console.log('✅ Sponsor updated, refetching...');
+      queryClient.invalidateQueries({ queryKey: [['sponsors']] });
+    },
   });
   
   const deleteSponsorMutation = trpc.sponsors.delete.useMutation({
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [['sponsors', 'getAll']] }),
+    onSuccess: () => {
+      console.log('✅ Sponsor deleted, refetching...');
+      queryClient.invalidateQueries({ queryKey: [['sponsors']] });
+    },
   });
 
   const createPastSeasonMutation = trpc.pastSeasons.create.useMutation({
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [['pastSeasons', 'getAll']] }),
+    onSuccess: () => {
+      console.log('✅ Past season created, refetching...');
+      queryClient.invalidateQueries({ queryKey: [['pastSeasons']] });
+    },
   });
 
   const players = useMemo(() => playersQuery.data || [], [playersQuery.data]);
@@ -131,7 +171,7 @@ export const [TournamentContext, useTournamentData] = createContextHook(() => {
     const match = matches.find(m => m.id === id);
     if (match && updates.status === 'completed' && match.pitNumber) {
       setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: [['matches', 'getAll']] });
+        queryClient.invalidateQueries({ queryKey: [['matches']] });
       }, 100);
     }
   }, [updateMatchMutation, matches, queryClient]);
